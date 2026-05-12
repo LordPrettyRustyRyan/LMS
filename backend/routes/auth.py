@@ -4,8 +4,9 @@ from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timezone
 from typing import Optional, Literal
 from db import db
+from config import settings
 
-from core.security import hash_password, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from core.security import hash_password, verify_password, create_access_token
 from core.dependencies import get_current_user
 from core.response import success_response
 from core.errors import (
@@ -101,7 +102,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             "access_token": token,
             "token_type": "bearer",
             "role": user["role"],
-            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 120  # Return in seconds
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 120  # Return in seconds
         }
     )
 
