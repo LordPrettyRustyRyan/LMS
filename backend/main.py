@@ -7,7 +7,6 @@ import logging
 from core.response import error_response
 from core.errors import AppError
 from config import settings
-import core.cloudinary
 
 from routes import dbcollections
 from routes import phonics
