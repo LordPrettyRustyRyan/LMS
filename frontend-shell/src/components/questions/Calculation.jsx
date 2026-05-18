@@ -1,4 +1,11 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+
+import {
+    Check,
+    Delete,
+    RotateCcw,
+    Equal,
+} from "lucide-react";
 
 const Calculation = ({
     subQuestion,
@@ -6,42 +13,148 @@ const Calculation = ({
     onAnswer,
     isLocked,
 }) => {
-    const [input, setInput] = useState("");
-    const [result, setResult] = useState(null);
+    // ===================================================
+    // STATES
+    // ===================================================
 
-    // ---------------------------------------------------
+    const [input, setInput] =
+        useState("");
+
+    const [result, setResult] =
+        useState(null);
+
+    // ===================================================
+    // CONFIG
+    // ===================================================
+
+    const calculatorConfig =
+        subQuestion?.calculator_config || {};
+
+    const allowDecimal =
+        calculatorConfig.allow_decimal ??
+        true;
+
+    const operators =
+        calculatorConfig.operators || [
+            "+",
+            "-",
+            "*",
+            "/",
+        ];
+
+    const maxDigits =
+        calculatorConfig.max_digits || 10;
+
+    // ===================================================
     // LOAD SAVED RESPONSE
-    // ---------------------------------------------------
+    // ===================================================
 
     useEffect(() => {
-        if (response?.value !== undefined) {
+        if (
+            response?.value !== undefined
+        ) {
             setResult(response.value);
-            setInput(response.steps || "");
+
+            setInput(
+                response.steps || ""
+            );
         }
     }, [response]);
 
-    // ---------------------------------------------------
-    // INPUT HANDLING
-    // ---------------------------------------------------
+    // ===================================================
+    // TTS
+    // ===================================================
+
+    const speak = (text) => {
+        if (!subQuestion?.tts) return;
+
+        window.speechSynthesis.cancel();
+
+        const utter =
+            new SpeechSynthesisUtterance(
+                text
+            );
+
+        utter.rate = 1;
+
+        window.speechSynthesis.speak(
+            utter
+        );
+    };
+
+    const speakButton = (btn) => {
+        const map = {
+            "+": "plus",
+            "-": "minus",
+            "*": "multiply by",
+            "/": "divide by",
+            "=": "equals",
+            ".": "decimal",
+            "clear": "decimal",
+        };
+
+        speak(map[btn] || btn);
+    };
+
+    // ===================================================
+    // INPUT
+    // ===================================================
 
     const handleClick = (val) => {
         if (isLocked) return;
 
+        // max digits check
+        const numericChars =
+            input.replace(/\D/g, "");
+
+        if (
+            /\d/.test(val) &&
+            numericChars.length >= maxDigits
+        ) {
+            return;
+        }
+
+        // decimal restriction
+        if (
+            val === "." &&
+            !allowDecimal
+        ) {
+            return;
+        }
+
+        speakButton(val);
+
         setInput((prev) => prev + val);
     };
 
+    // ===================================================
+    // CLEAR
+    // ===================================================
+
     const clear = () => {
         if (isLocked) return;
+
+        speak("clear");
 
         setInput("");
         setResult(null);
     };
 
+    // ===================================================
+    // BACKSPACE
+    // ===================================================
+
     const backspace = () => {
         if (isLocked) return;
 
-        setInput((prev) => prev.slice(0, -1));
+        speak("back");
+
+        setInput((prev) =>
+            prev.slice(0, -1)
+        );
     };
+
+
 
     // ---------------------------------------------------
     // CALCULATE
@@ -49,23 +162,29 @@ const Calculation = ({
 
     const calculate = () => {
         try {
-            // MVP SAFE-ish PARSE
             // eslint-disable-next-line no-eval
             const res = eval(input);
 
             setResult(res);
+
+            // ✅ SPEAK RESULT
+            speak(`equals to ${res}`);
 
         } catch {
             alert("Invalid calculation");
         }
     };
 
-    // ---------------------------------------------------
+    // ===================================================
     // SAVE ANSWER
-    // ---------------------------------------------------
+    // ===================================================
 
     const confirmAnswer = () => {
         if (result === null) return;
+
+        speak(
+            `answer confirmed, your answer is ${result}`
+        );
 
         onAnswer({
             value: result,
@@ -73,38 +192,67 @@ const Calculation = ({
         });
     };
 
-    // ---------------------------------------------------
+    // ===================================================
     // QUESTION CONTENT
-    // ---------------------------------------------------
+    // ===================================================
 
-    const renderContent = () => {
-        return subQuestion?.content?.map((c, i) => {
-            if (c.type === "text") {
-                return (
-                    <span key={i}>
-                        {c.value}{" "}
-                    </span>
-                );
+    const renderQuestion = () => {
+        return subQuestion?.content?.map(
+            (c, i) => {
+                // TEXT
+                if (c.type === "text") {
+                    return (
+                        <span key={i}>
+                            {c.value}
+                        </span>
+                    );
+                }
+
+                // BLANK
+                if (c.type === "blank") {
+                    return (
+                        <span
+                            key={i}
+                            className="
+                                inline-flex
+                                min-w-22.5
+                                items-center
+                                justify-center
+                                rounded-xl
+                                border-b-4
+                                border-indigo-400
+                                px-4
+                                py-2
+                                text-indigo-700
+                            "
+                        >
+                            {result !== null
+                                ? result
+                                : "?"}
+                        </span>
+                    );
+                }
+
+                // IMAGE
+                if (c.type === "image") {
+                    return (
+                        <img
+                            key={i}
+                            src={c.value}
+                            alt=""
+                            className="max-h-28 rounded-2xl object-contain"
+                        />
+                    );
+                }
+
+                return null;
             }
-
-            if (c.type === "image") {
-                return (
-                    <img
-                        key={i}
-                        src={c.value}
-                        alt=""
-                        className="max-h-32 rounded-xl object-contain"
-                    />
-                );
-            }
-
-            return null;
-        });
+        );
     };
 
-    // ---------------------------------------------------
+    // ===================================================
     // BUTTONS
-    // ---------------------------------------------------
+    // ===================================================
 
     const buttons = [
         "7",
@@ -120,48 +268,71 @@ const Calculation = ({
         "3",
         "-",
         "0",
-        ".",
+        " ",
         "=",
         "+",
-    ];
+    ].filter(Boolean);
 
-    // ---------------------------------------------------
+    // ===================================================
+    // DISPLAY SYMBOL
+    // ===================================================
+
+    const displaySymbol = (btn) => {
+        if (btn === "/") return "÷";
+        if (btn === "*") return "×";
+
+        return btn;
+    };
+
+    // ===================================================
     // UI
-    // ---------------------------------------------------
+    // ===================================================
 
     return (
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* QUESTION */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
-            <div className="mb-6">
-                <div className="flex flex-wrap items-center gap-4 text-2xl font-medium text-zinc-800">
-                    {renderContent()}
+            <div className="mb-8 flex justify-center">
+                <div
+                    className="
+                        flex
+                        flex-wrap
+                        items-center
+                        justify-center
+                        gap-4
+                        rounded-3xl
+                        bg-zinc-50
+                        px-8
+                        py-6
+                        text-center
+                        text-4xl
+                        font-bold
+                        text-zinc-800
+                    "
+                >
+                    {renderQuestion()}
                 </div>
-            </div>
+                
+                {/* ========================================= */}
+                {/* DISPLAY */}
+                {/* ========================================= */}
 
-            {/* ================================================= */}
-            {/* DISPLAY */}
-            {/* ================================================= */}
-
-            <div className="mb-6 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-                <div className="min-h-[48px] break-all text-right font-mono text-3xl font-semibold text-zinc-800">
-                    {input || "0"}
-                </div>
-
-                {result !== null && (
-                    <div className="mt-3 text-right text-xl font-medium text-green-600">
-                        = {result}
+                <div className="ml-7 overflow-hidden rounded-3xl border border-zinc-200 bg-zinc-50 p-5 min-w-100">
+                    <div className="min-h-13 break-all text-right font-mono text-4xl font-bold text-zinc-800">
+                        {input || "0"}
                     </div>
-                )}
+                </div>
             </div>
 
-            {/* ================================================= */}
-            {/* KEYPAD */}
-            {/* ================================================= */}
 
-            <div className="grid grid-cols-4 gap-3">
+
+            {/* ========================================= */}
+            {/* KEYPAD */}
+            {/* ========================================= */}
+
+            <div className="grid grid-cols-4 gap-4">
                 {buttons.map((btn, i) => (
                     <button
                         key={i}
@@ -169,67 +340,106 @@ const Calculation = ({
                         onClick={() =>
                             btn === "="
                                 ? calculate()
-                                : handleClick(btn)
+                                : handleClick(
+                                    btn
+                                )
                         }
                         className={`
-                            h-16 rounded-2xl text-xl font-semibold transition-all
-                            ${
-                                btn === "="
-                                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                                    : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200"
+                            h-20
+                            rounded-3xl
+                            text-3xl
+                            font-bold
+                            transition-all
+                            active:scale-95
+                            ${btn === "="
+                                ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                                : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200"
                             }
                             disabled:cursor-not-allowed
                             disabled:opacity-50
                         `}
                     >
-                        {btn}
+                        {displaySymbol(btn)}
                     </button>
                 ))}
             </div>
 
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* ACTIONS */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-wrap justify-center gap-4">
+                {/* CLEAR */}
                 <button
                     onClick={clear}
                     disabled={isLocked}
-                    className="rounded-xl bg-red-100 px-5 py-3 font-semibold text-red-700 transition hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="
+                        flex items-center gap-2
+                        rounded-2xl
+                        bg-red-100
+                        px-5 py-3
+                        font-semibold
+                        text-red-700
+                        transition
+                        hover:bg-red-200
+                        disabled:cursor-not-allowed
+                        disabled:opacity-50
+                    "
                 >
+                    <RotateCcw size={20} />
+
                     Clear
                 </button>
 
+                {/* BACKSPACE */}
                 <button
                     onClick={backspace}
                     disabled={isLocked}
-                    className="rounded-xl bg-zinc-200 px-5 py-3 font-semibold text-zinc-700 transition hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="
+                        flex items-center gap-2
+                        rounded-2xl
+                        bg-zinc-200
+                        px-5 py-3
+                        font-semibold
+                        text-zinc-700
+                        transition
+                        hover:bg-zinc-300
+                        disabled:cursor-not-allowed
+                        disabled:opacity-50
+                    "
                 >
-                    ⌫ Backspace
+                    <Delete size={20} />
+
+                    Backspace
                 </button>
 
+                {/* CONFIRM */}
                 {result !== null && (
-                    <>
-                        <button
-                            onClick={confirmAnswer}
-                            disabled={isLocked}
-                            className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            ✅ Confirm Answer
-                        </button>
+                    <button
+                        onClick={
+                            confirmAnswer
+                        }
+                        disabled={isLocked}
+                        className="
+                            flex items-center gap-2
+                            rounded-2xl
+                            bg-green-600
+                            px-5 py-3
+                            font-semibold
+                            text-white
+                            transition
+                            hover:bg-green-700
+                            disabled:cursor-not-allowed
+                            disabled:opacity-50
+                        "
+                    >
+                        <Check size={20} />
 
-                        <button
-                            onClick={clear}
-                            disabled={isLocked}
-                            className="rounded-xl bg-orange-500 px-5 py-3 font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            🔁 Retry
-                        </button>
-                    </>
+                        Confirm Answer
+                    </button>
                 )}
             </div>
         </div>
     );
 };
-
 export default Calculation;
