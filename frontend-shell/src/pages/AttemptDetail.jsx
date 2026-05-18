@@ -338,25 +338,59 @@ const AttemptDetail = () => {
 
                                                 {canGrade && meta && (
                                                     <div className="mt-6 border-t border-slate-200 pt-5">
-                                                        <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                                            Grade Response
-                                                        </label>
+                                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            value={
-                                                                scores[meta._id] ?? ""
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleGrade(
-                                                                    meta._id,
-                                                                    Number(e.target.value)
-                                                                )
-                                                            }
-                                                            className="w-32 rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
-                                                            placeholder="Score"
-                                                        />
+                                                            {/* LABEL + SCORE */}
+
+                                                            <div>
+                                                                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                                                    Grade Response
+                                                                </label>
+
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="rounded-full bg-indigo-100 px-4 py-1 text-sm font-bold text-indigo-700">
+                                                                        {scores[meta._id] ?? 0} / 5
+                                                                    </div>
+
+                                                                    <div className="text-sm text-slate-500">
+                                                                        Slide to assign marks
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* SLIDER */}
+
+                                                            <div className="w-full sm:max-w-sm">
+                                                                <input
+                                                                    type="range"
+                                                                    min="0"
+                                                                    max="5"
+                                                                    step="1"
+                                                                    value={scores[meta._id] ?? 0}
+                                                                    onChange={(e) =>
+                                                                        handleGrade(
+                                                                            meta._id,
+                                                                            Number(e.target.value)
+                                                                        )
+                                                                    }
+                                                                    className="
+                                                                        h-3 w-full cursor-pointer appearance-none rounded-full
+                                                                        bg-slate-200 accent-indigo-600
+                                                                    "
+                                                                />
+
+                                                                {/* SCALE */}
+
+                                                                <div className="mt-2 flex justify-between text-xs font-medium text-slate-500">
+                                                                    <span>0</span>
+                                                                    <span>1</span>
+                                                                    <span>2</span>
+                                                                    <span>3</span>
+                                                                    <span>4</span>
+                                                                    <span>5</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
