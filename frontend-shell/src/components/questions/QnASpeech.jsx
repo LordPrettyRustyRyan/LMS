@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { uploadMedia } from "../../api/media";
 
+import {
+    Mic,
+    Square,
+    RotateCcw,
+    Loader2,
+} from "lucide-react";
+
 const QnASpeech = ({
     subQuestion,
     response,
@@ -158,58 +165,63 @@ const QnASpeech = ({
     };
 
     // =====================================================
-    // RENDER CONTENT
+    // SPLIT CONTENT
     // =====================================================
 
-    const renderContent = () => {
-        return subQuestion?.content?.map(
-            (c, i) => {
-                // -----------------------------------------
-                // TEXT
-                // -----------------------------------------
-
-                if (c.type === "text") {
-                    return (
-                        <span
-                            key={i}
-                            className="mr-2"
-                        >
-                            {c.value}
-                        </span>
-                    );
-                }
-
-                // -----------------------------------------
-                // IMAGE
-                // -----------------------------------------
-
-                if (c.type === "image") {
-                    return (
-                        <img
-                            key={i}
-                            src={c.value}
-                            alt=""
-                            className="inline-block h-24 w-24 rounded-xl object-cover"
-                        />
-                    );
-                }
-
-                // -----------------------------------------
-                // BLANK
-                // -----------------------------------------
-
-                if (c.type === "blank") {
-                    return (
-                        <span
-                            key={i}
-                            className="mx-2 inline-block min-w-[80px] border-b-4 border-zinc-400"
-                        />
-                    );
-                }
-
-                return null;
-            }
+    const imageContent =
+        subQuestion?.content?.find(
+            (c) => c.type === "image"
         );
+
+    const textContent =
+        subQuestion?.content?.filter(
+            (c) =>
+                c.type === "text" ||
+                c.type === "blank"
+        ) || [];
+
+    // =====================================================
+    // RENDER TEXT
+    // =====================================================
+
+    const renderQuestionText = () => {
+        return textContent.map((c, i) => {
+            // -----------------------------------------
+            // TEXT
+            // -----------------------------------------
+
+            if (c.type === "text") {
+                return (
+                    <span
+                        key={i}
+                        className="mr-3"
+                    >
+                        {c.value}
+                    </span>
+                );
+            }
+
+            // -----------------------------------------
+            // BLANK
+            // -----------------------------------------
+
+            if (c.type === "blank") {
+                return (
+                    <span
+                        key={i}
+                        className="
+                            mx-3 inline-block
+                            min-w-30
+                            border-b-4
+                            border-zinc-400
+                            align-middle
+                        "
+                    />
+                );
+            }
+
+            return null;
+        });
     };
 
     // =====================================================
@@ -218,63 +230,144 @@ const QnASpeech = ({
 
     return (
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+
             {/* ================================================= */}
-            {/* QUESTION */}
+            {/* QUESTION + IMAGE */}
             {/* ================================================= */}
 
-            <div className="mb-8 text-xl leading-10 text-zinc-800">
-                {renderContent()}
+            <div className="grid gap-6 lg:grid-cols-12">
+
+                {/* QUESTION */}
+
+                <div className="lg:col-span-9">
+                    <div
+                        className="
+                            rounded-3xl
+                            border border-zinc-200
+                            bg-zinc-50
+                            p-6
+                            text-2xl
+                            font-medium
+                            leading-17.5
+                            text-zinc-800
+                        "
+                    >
+                        {renderQuestionText()}
+                    </div>
+                </div>
+
+                {/* IMAGE */}
+
+                <div className="lg:col-span-3">
+                    {imageContent && (
+                        <div
+                            className="
+                                overflow-hidden
+                                rounded-3xl
+                                border border-zinc-200
+                                bg-white
+                                shadow-sm
+                            "
+                        >
+                            <img
+                                src={imageContent.value}
+                                alt=""
+                                className="
+                                    h-48
+                                    w-full
+                                    object-cover
+                                "
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* ================================================= */}
             {/* CONTROLS */}
             {/* ================================================= */}
 
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+
                 {/* RECORD */}
+
                 {!recording ? (
                     audioUrl ? (
                         <button
                             disabled={isLocked}
                             onClick={startRecording}
-                            className="rounded-2xl bg-orange-500 px-6 py-4 text-lg font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="
+                                flex items-center gap-3
+                                rounded-2xl
+                                bg-orange-500
+                                px-6 py-4
+                                text-lg font-semibold
+                                text-white
+                                transition
+                                hover:bg-orange-600
+                                disabled:cursor-not-allowed
+                                disabled:opacity-50
+                            "
                         >
-                            🔁 Retry Recording
+                            <RotateCcw size={22} />
+                            Retry Recording
                         </button>
                     ) : (
                         <button
                             disabled={isLocked}
                             onClick={startRecording}
-                            className="rounded-2xl bg-indigo-600 px-6 py-4 text-lg font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="
+                                flex items-center gap-3
+                                rounded-2xl
+                                bg-indigo-600
+                                px-6 py-4
+                                text-lg font-semibold
+                                text-white
+                                transition
+                                hover:bg-indigo-700
+                                disabled:cursor-not-allowed
+                                disabled:opacity-50
+                            "
                         >
-                            🎤 Start Recording
+                            <Mic size={22} />
+                            Start Recording
                         </button>
                     )
                 ) : (
                     <button
                         onClick={stopRecording}
-                        className="rounded-2xl bg-red-600 px-6 py-4 text-lg font-semibold text-white transition hover:bg-red-700"
+                        className="
+                            flex items-center gap-3
+                            rounded-2xl
+                            bg-red-600
+                            px-6 py-4
+                            text-lg font-semibold
+                            text-white
+                            transition
+                            hover:bg-red-700
+                        "
                     >
-                        ⏹ Stop Recording
-                    </button>
-                )}
-
-                {/* CLEAR */}
-                {audioUrl && !recording && (
-                    <button
-                        disabled={isLocked}
-                        onClick={handleRetry}
-                        className="rounded-2xl border border-zinc-300 bg-white px-6 py-4 text-lg font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        ❌ Clear
+                        <Square size={20} />
+                        Stop Recording
                     </button>
                 )}
 
                 {/* UPLOADING */}
+
                 {uploading && (
-                    <span className="text-sm font-medium text-zinc-500">
+                    <div
+                        className="
+                            flex items-center gap-2
+                            text-sm font-medium
+                            text-zinc-500
+                        "
+                    >
+                        <Loader2
+                            size={16}
+                            className="animate-spin"
+                        />
                         Uploading audio...
-                    </span>
+                    </div>
                 )}
             </div>
 
@@ -283,7 +376,15 @@ const QnASpeech = ({
             {/* ================================================= */}
 
             {audioUrl && (
-                <div className="mt-6">
+                <div
+                    className="
+                        mt-6
+                        rounded-2xl
+                        border border-zinc-200
+                        bg-zinc-50
+                        p-4
+                    "
+                >
                     <audio
                         controls
                         src={audioUrl}
