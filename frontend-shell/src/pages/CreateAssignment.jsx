@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { createAssignment } from "../api/assignments";
 import { getMyClasses } from "../api/classrooms";
@@ -8,6 +8,14 @@ import { useParams, useNavigate } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import { useAuth } from "../auth/AuthContext";
+
+import {
+    Plus,
+    Trash2,
+    Layers3,
+    ListChecks,
+    Sparkles,
+} from "lucide-react";
 
 const CreateAssignment = () => {
     const navigate = useNavigate();
@@ -76,9 +84,12 @@ const CreateAssignment = () => {
 
     const fetchQuestions = async () => {
         try {
+            // IMPORTANT:
+            // backend expects qtype NOT type
+
             const res = await getQuestions({
                 category,
-                type,
+                qtype: type,
             });
 
             setQuestionsList(res || []);
@@ -126,6 +137,98 @@ const CreateAssignment = () => {
         setQuestions(updated);
     };
 
+    const toggleSubQuestion = (
+        qIndex,
+        subId,
+        checked
+    ) => {
+        const updated = [...questions];
+
+        if (checked) {
+            if (
+                !updated[qIndex].sub_questions.includes(
+                    subId
+                )
+            ) {
+                updated[
+                    qIndex
+                ].sub_questions.push(subId);
+            }
+        } else {
+            updated[qIndex].sub_questions =
+                updated[
+                    qIndex
+                ].sub_questions.filter(
+                    (s) => s !== subId
+                );
+        }
+
+        setQuestions(updated);
+    };
+
+    const applyPresetSelection = (
+        qIndex,
+        mode
+    ) => {
+        const selectedQuestion =
+            getSelectedQuestion(
+                questions[qIndex].question_id
+            );
+
+        if (!selectedQuestion) return;
+
+        const allSubIds =
+            selectedQuestion.sub_questions.map(
+                (s) => s.id
+            );
+
+        let selected = [];
+
+        switch (mode) {
+            case "first5":
+                selected = allSubIds.slice(0, 5);
+                break;
+
+            case "last5":
+                selected = allSubIds.slice(-5);
+                break;
+
+            case "first10":
+                selected = allSubIds.slice(0, 10);
+                break;
+
+            case "odd":
+                selected = allSubIds.filter(
+                    (_, i) => i % 2 === 0
+                );
+                break;
+
+            case "even":
+                selected = allSubIds.filter(
+                    (_, i) => i % 2 === 1
+                );
+                break;
+
+            case "all":
+                selected = allSubIds;
+                break;
+
+            case "clear":
+                selected = [];
+                break;
+
+            default:
+                selected = [];
+        }
+
+        const updated = [...questions];
+
+        updated[qIndex].sub_questions =
+            selected;
+
+        setQuestions(updated);
+    };
+
     // ---------------- SUBMIT ----------------
 
     const handleSubmit = async () => {
@@ -152,16 +255,6 @@ const CreateAssignment = () => {
             ) {
                 alert(
                     "Each question must have sub-questions"
-                );
-                return;
-            }
-
-            if (
-                !q.marks_per_sub ||
-                q.marks_per_sub <= 0
-            ) {
-                alert(
-                    "Marks must be greater than 0"
                 );
                 return;
             }
@@ -198,23 +291,33 @@ const CreateAssignment = () => {
             alert(
                 err?.response?.data
                     ?.message ||
-                    "Error creating assignment"
+                "Error creating assignment"
             );
         } finally {
             setLoading(false);
         }
     };
 
+    const totalSelectedSubQuestions =
+        useMemo(() => {
+            return questions.reduce(
+                (acc, q) =>
+                    acc +
+                    q.sub_questions.length,
+                0
+            );
+        }, [questions]);
+
     return (
         <div className="min-h-screen bg-slate-50">
             <Navbar role={user?.role} />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
 
                 {/* HERO */}
 
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-8 md:p-10 text-white shadow-lg">
-                    <p className="uppercase tracking-wider text-sm text-indigo-100 mb-2">
+                <div className="rounded-3xl bg-linear-to-r from-indigo-600 to-purple-600 p-8 text-white shadow-lg md:p-10">
+                    <p className="mb-2 text-sm uppercase tracking-wider text-indigo-100">
                         Assignment Builder
                     </p>
 
@@ -222,7 +325,7 @@ const CreateAssignment = () => {
                         Create Assignment
                     </h1>
 
-                    <p className="mt-3 text-indigo-100 max-w-2xl">
+                    <p className="mt-3 max-w-2xl text-indigo-100">
                         Build assignments,
                         choose questions,
                         assign marks, and
@@ -232,280 +335,142 @@ const CreateAssignment = () => {
                     </p>
                 </div>
 
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm mt-6">
+                    <h2 className="mb-6 text-2xl font-bold text-slate-900">
+                        Assignment Details
+                    </h2>
+
+                    {/* Changed to a responsive grid layout */}
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+
+                        {/* TITLE */}
+                        <div>
+                            <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                Assignment Title
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Enter assignment title"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                            />
+                        </div>
+
+                        {/* CLASSROOM */}
+                        <div>
+                            <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                Classroom
+                            </label>
+                            <select
+                                value={classroomId}
+                                disabled={!!id}
+                                onChange={(e) => setClassroomId(e.target.value)}
+                                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:bg-slate-100"
+                            >
+                                <option value="">Select Classroom</option>
+                                {classrooms.map((c) => (
+                                    <option key={c._id} value={c._id}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* DUE DATE */}
+                        <div>
+                            <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                Due Date
+                            </label>
+                            <input
+                                type="datetime-local"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 {/* MAIN */}
 
-                <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-12">
 
-                    {/* LEFT PANEL */}
+                    {/* QUESTIONS LEFT SIDE */}
 
-                    <div className="lg:col-span-2 space-y-6">
-
-                        {/* BASIC DETAILS */}
-
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-                            <h2 className="text-2xl font-bold text-slate-900 mb-6">
-                                Assignment Details
-                            </h2>
-
-                            <div className="space-y-5">
-
-                                {/* TITLE */}
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Assignment
-                                        Title
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        placeholder="Enter assignment title"
-                                        value={
-                                            title
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setTitle(
-                                                e
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                        className="w-full px-4 py-3 rounded-2xl border border-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
-                                    />
-                                </div>
-
-                                {/* CLASSROOM */}
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Classroom
-                                    </label>
-
-                                    <select
-                                        value={
-                                            classroomId
-                                        }
-                                        disabled={
-                                            !!id
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setClassroomId(
-                                                e
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                        className="w-full px-4 py-3 rounded-2xl border border-slate-300 bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 disabled:bg-slate-100"
-                                    >
-                                        <option value="">
-                                            Select
-                                            Classroom
-                                        </option>
-
-                                        {classrooms.map(
-                                            (
-                                                c
-                                            ) => (
-                                                <option
-                                                    key={
-                                                        c._id
-                                                    }
-                                                    value={
-                                                        c._id
-                                                    }
-                                                >
-                                                    {
-                                                        c.name
-                                                    }
-                                                </option>
-                                            )
-                                        )}
-                                    </select>
-                                </div>
-
-                                {/* DUE DATE */}
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Due Date
-                                    </label>
-
-                                    <input
-                                        type="datetime-local"
-                                        value={
-                                            dueDate
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setDueDate(
-                                                e
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                        className="w-full px-4 py-3 rounded-2xl border border-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* FILTERS */}
-
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-                            <h2 className="text-2xl font-bold text-slate-900 mb-6">
-                                Question Filters
-                            </h2>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                                {/* CATEGORY */}
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Category
-                                    </label>
-
-                                    <select
-                                        value={
-                                            category
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setCategory(
-                                                e
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                        className="w-full px-4 py-3 rounded-2xl border border-slate-300 bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
-                                    >
-                                        <option value="">
-                                            Select
-                                            Category
-                                        </option>
-
-                                        <option value="reading">
-                                            Reading
-                                        </option>
-
-                                        <option value="writing">
-                                            Writing
-                                        </option>
-
-                                        <option value="numeracy">
-                                            Numeracy
-                                        </option>
-
-                                        <option value="communication">
-                                            Communication
-                                        </option>
-                                    </select>
-                                </div>
-
-                                {/* TYPE */}
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Question Type
-                                    </label>
-
-                                    <select
-                                        value={
-                                            type
-                                        }
-                                        onChange={(
-                                            e
-                                        ) =>
-                                            setType(
-                                                e
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                        className="w-full px-4 py-3 rounded-2xl border border-slate-300 bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
-                                    >
-                                        <option value="">
-                                            All Types
-                                        </option>
-
-                                        <option value="3_option_mcq">
-                                            3
-                                            Option
-                                            MCQ
-                                        </option>
-
-                                        <option value="yesno">
-                                            Yes /
-                                            No
-                                        </option>
-
-                                        <option value="match">
-                                            Match
-                                        </option>
-
-                                        <option value="text_reading">
-                                            Text
-                                            Reading
-                                        </option>
-
-                                        <option value="calculations">
-                                            Calculations
-                                        </option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="space-y-6 lg:col-span-8">
 
                         {/* QUESTIONS */}
 
-                        <div className="space-y-6">
+                        {questions.map(
+                            (
+                                q,
+                                index
+                            ) => {
+                                const selectedQuestion =
+                                    getSelectedQuestion(
+                                        q.question_id
+                                    );
 
-                            {questions.map(
-                                (
-                                    q,
-                                    index
-                                ) => (
+                                const subQuestions =
+                                    selectedQuestion?.sub_questions ||
+                                    [];
+
+                                const isLargeGrid =
+                                    subQuestions.length >
+                                    10;
+
+                                return (
                                     <div
                                         key={
                                             index
                                         }
-                                        className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6"
+                                        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
                                     >
 
                                         {/* TOP */}
 
-                                        <div className="flex items-center justify-between mb-6">
-                                            <h2 className="text-2xl font-bold text-slate-900">
-                                                Question{" "}
-                                                {index +
-                                                    1}
-                                            </h2>
+                                        <div className="mb-6 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+                                                    <Layers3 size={24} />
+                                                </div>
+
+                                                <div>
+                                                    <h2 className="text-2xl font-bold text-slate-900">
+                                                        Question{" "}
+                                                        {index +
+                                                            1}
+                                                    </h2>
+
+                                                    <p className="text-sm text-slate-500">
+                                                        Configure
+                                                        question
+                                                        selection
+                                                    </p>
+                                                </div>
+                                            </div>
 
                                             {questions.length >
                                                 1 && (
-                                                <button
-                                                    onClick={() =>
-                                                        handleRemoveQuestion(
-                                                            index
-                                                        )
-                                                    }
-                                                    className="bg-rose-100 hover:bg-rose-200 text-rose-700 px-4 py-2 rounded-xl font-semibold transition"
-                                                >
-                                                    Delete
-                                                </button>
-                                            )}
+                                                    <button
+                                                        onClick={() =>
+                                                            handleRemoveQuestion(
+                                                                index
+                                                            )
+                                                        }
+                                                        className="flex items-center gap-2 rounded-2xl bg-rose-100 px-4 py-2 font-semibold text-rose-700 transition hover:bg-rose-200"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                        Delete
+                                                    </button>
+                                                )}
                                         </div>
 
                                         {/* SELECT QUESTION */}
 
                                         <div className="mb-6">
-                                            <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                            <label className="mb-2 block text-sm font-semibold text-slate-700">
                                                 Select
                                                 Question
                                             </label>
@@ -528,7 +493,7 @@ const CreateAssignment = () => {
                                                             .value
                                                     )
                                                 }
-                                                className="w-full px-4 py-3 rounded-2xl border border-slate-300 bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 disabled:bg-slate-100"
+                                                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:bg-slate-100"
                                             >
                                                 <option value="">
                                                     Select
@@ -560,29 +525,119 @@ const CreateAssignment = () => {
 
                                         {q.question_id && (
                                             <div className="mb-6">
-                                                <label className="block text-sm font-semibold text-slate-700 mb-4">
-                                                    Select
-                                                    Sub
-                                                    Questions
-                                                </label>
 
-                                                <div className="space-y-3">
+                                                {/* HEADER */}
 
-                                                    {getSelectedQuestion(
-                                                        q.question_id
-                                                    )?.sub_questions?.map(
+                                                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                                    <label className="text-sm font-semibold text-slate-700">
+                                                        Select
+                                                        Sub
+                                                        Questions
+                                                    </label>
+
+                                                    <div className="rounded-full bg-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-700">
+                                                        {
+                                                            q
+                                                                .sub_questions
+                                                                .length
+                                                        }{" "}
+                                                        Selected
+                                                    </div>
+                                                </div>
+
+                                                {/* PRESET BUTTONS */}
+
+                                                <div className="mb-5 flex flex-wrap gap-2">
+                                                    {[
+                                                        {
+                                                            label:
+                                                                "First 5",
+                                                            value:
+                                                                "first5",
+                                                        },
+                                                        {
+                                                            label:
+                                                                "Last 5",
+                                                            value:
+                                                                "last5",
+                                                        },
+                                                        {
+                                                            label:
+                                                                "First 10",
+                                                            value:
+                                                                "first10",
+                                                        },
+                                                        {
+                                                            label:
+                                                                "Alt Odd",
+                                                            value:
+                                                                "odd",
+                                                        },
+                                                        {
+                                                            label:
+                                                                "Alt Even",
+                                                            value:
+                                                                "even",
+                                                        },
+                                                        {
+                                                            label:
+                                                                "Select All",
+                                                            value:
+                                                                "all",
+                                                        },
+                                                        {
+                                                            label:
+                                                                "Clear",
+                                                            value:
+                                                                "clear",
+                                                        },
+                                                    ].map(
+                                                        (
+                                                            preset
+                                                        ) => (
+                                                            <button
+                                                                key={
+                                                                    preset.value
+                                                                }
+                                                                onClick={() =>
+                                                                    applyPresetSelection(
+                                                                        index,
+                                                                        preset.value
+                                                                    )
+                                                                }
+                                                                className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                                                            >
+                                                                {
+                                                                    preset.label
+                                                                }
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </div>
+
+                                                {/* SUB QUESTIONS GRID */}
+
+                                                <div
+                                                    className={`grid gap-4 ${isLargeGrid
+                                                            ? "grid-cols-1 md:grid-cols-3"
+                                                            : "grid-cols-1 md:grid-cols-2"
+                                                        }`}
+                                                >
+                                                    {subQuestions.map(
                                                         (
                                                             sub
                                                         ) => {
                                                             const getDisplayText =
                                                                 () => {
                                                                     // 1. Highest priority → display_text (NEW STANDARD)
+
                                                                     if (
                                                                         sub.display_text
                                                                     )
                                                                         return sub.display_text;
 
                                                                     // 2. fallback → first text content
+
                                                                     if (
                                                                         sub.content
                                                                             ?.length
@@ -603,6 +658,7 @@ const CreateAssignment = () => {
                                                                     }
 
                                                                     // 3. comprehension / nested cases
+
                                                                     if (
                                                                         sub.questions
                                                                             ?.length
@@ -616,72 +672,57 @@ const CreateAssignment = () => {
                                                                     }
 
                                                                     // 4. last fallback
+
                                                                     return sub.id;
                                                                 };
+
+                                                            const checked =
+                                                                q.sub_questions.includes(
+                                                                    sub.id
+                                                                );
 
                                                             return (
                                                                 <label
                                                                     key={
                                                                         sub.id
                                                                     }
-                                                                    className="flex items-start gap-4 p-4 border border-slate-200 rounded-2xl hover:bg-slate-50 transition cursor-pointer"
+                                                                    className={`cursor-pointer rounded-2xl border p-4 transition-all ${checked
+                                                                            ? "border-indigo-400 bg-indigo-50"
+                                                                            : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
+                                                                        }`}
                                                                 >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={q.sub_questions.includes(
-                                                                            sub.id
-                                                                        )}
-                                                                        onChange={(
-                                                                            e
-                                                                        ) => {
-                                                                            const updated =
-                                                                                [
-                                                                                    ...questions,
-                                                                                ];
-
-                                                                            if (
+                                                                    <div className="flex items-start gap-3">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={
+                                                                                checked
+                                                                            }
+                                                                            onChange={(
                                                                                 e
-                                                                                    .target
-                                                                                    .checked
-                                                                            ) {
-                                                                                updated[
-                                                                                    index
-                                                                                ].sub_questions.push(
+                                                                            ) =>
+                                                                                toggleSubQuestion(
+                                                                                    index,
+                                                                                    sub.id,
+                                                                                    e
+                                                                                        .target
+                                                                                        .checked
+                                                                                )
+                                                                            }
+                                                                            className="mt-1 h-5 w-5 accent-indigo-600"
+                                                                        />
+
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <p className="line-clamp-3 font-medium text-slate-800">
+                                                                                {getDisplayText()}
+                                                                            </p>
+
+                                                                            <p className="mt-2 text-xs text-slate-500">
+                                                                                ID:{" "}
+                                                                                {
                                                                                     sub.id
-                                                                                );
-                                                                            } else {
-                                                                                updated[
-                                                                                    index
-                                                                                ].sub_questions =
-                                                                                    updated[
-                                                                                        index
-                                                                                    ].sub_questions.filter(
-                                                                                        (
-                                                                                            s
-                                                                                        ) =>
-                                                                                            s !==
-                                                                                            sub.id
-                                                                                    );
-                                                                            }
-
-                                                                            setQuestions(
-                                                                                updated
-                                                                            );
-                                                                        }}
-                                                                        className="mt-1 w-5 h-5 accent-indigo-600"
-                                                                    />
-
-                                                                    <div>
-                                                                        <p className="font-medium text-slate-800">
-                                                                            {getDisplayText()}
-                                                                        </p>
-
-                                                                        <p className="text-sm text-slate-500 mt-1">
-                                                                            ID:{" "}
-                                                                            {
-                                                                                sub.id
-                                                                            }
-                                                                        </p>
+                                                                                }
+                                                                            </p>
+                                                                        </div>
                                                                     </div>
                                                                 </label>
                                                             );
@@ -694,15 +735,25 @@ const CreateAssignment = () => {
                                         {/* MARKS */}
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                                Marks
-                                                Per Sub
-                                                Question
-                                            </label>
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <label className="text-sm font-semibold text-slate-700">
+                                                    Marks
+                                                    Per Sub
+                                                    Question
+                                                </label>
+
+                                                <div className="rounded-full bg-indigo-100 px-3 py-1 text-sm font-bold text-indigo-700">
+                                                    {
+                                                        q.marks_per_sub
+                                                    }
+                                                </div>
+                                            </div>
 
                                             <input
-                                                type="number"
-                                                min="1"
+                                                type="range"
+                                                min="0"
+                                                max="5"
+                                                step="1"
                                                 value={
                                                     q.marks_per_sub
                                                 }
@@ -719,95 +770,260 @@ const CreateAssignment = () => {
                                                         )
                                                     )
                                                 }
-                                                className="w-full md:w-40 px-4 py-3 rounded-2xl border border-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                                                className="h-3 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-indigo-600"
                                             />
+
+                                            <div className="mt-2 flex justify-between text-xs font-medium text-slate-500">
+                                                <span>
+                                                    0
+                                                </span>
+                                                <span>
+                                                    5
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                )
-                            )}
+                                );
+                            }
+                        )}
 
-                            {/* ADD QUESTION */}
+                        {/* ADD QUESTION */}
 
-                            <button
-                                onClick={
-                                    handleAddQuestion
-                                }
-                                className="w-full bg-white hover:bg-slate-100 border-2 border-dashed border-slate-300 rounded-3xl py-6 text-slate-700 font-semibold text-lg transition"
-                            >
-                                + Add Another
-                                Question
-                            </button>
-                        </div>
+                        <button
+                            onClick={
+                                handleAddQuestion
+                            }
+                            className="flex w-full items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-slate-300 bg-white py-6 text-lg font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                            <Plus size={22} />
+                            Add Another
+                            Question
+                        </button>
                     </div>
 
                     {/* RIGHT SIDEBAR */}
 
-                    <div className="space-y-6">
+                    <div className="space-y-6 lg:col-span-4">
 
-                        {/* SUMMARY */}
+                        {/* ASSIGNMENT DETAILS */}
 
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sticky top-24">
-                            <h2 className="text-2xl font-bold text-slate-900 mb-6">
-                                Summary
-                            </h2>
+                        <div className="sticky top-24 space-y-6">
 
-                            <div className="space-y-5">
 
-                                <div className="flex justify-between items-center">
-                                    <span className="text-slate-600">
-                                        Questions
-                                    </span>
 
-                                    <span className="font-bold text-slate-900">
-                                        {
-                                            questions.length
-                                        }
-                                    </span>
+                            {/* QUESTION FILTERS */}
+
+                            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                                <div className="mb-6 flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+                                        <Sparkles size={20} />
+                                    </div>
+
+                                    <h2 className="text-2xl font-bold text-slate-900">
+                                        Question
+                                        Filters
+                                    </h2>
                                 </div>
 
-                                <div className="flex justify-between items-center">
-                                    <span className="text-slate-600">
-                                        Classroom
-                                    </span>
+                                <div className="space-y-5">
 
-                                    <span className="font-bold text-slate-900 text-right">
-                                        {classrooms.find(
-                                            (
-                                                c
+                                    {/* CATEGORY */}
+
+                                    <div>
+                                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                            Category
+                                        </label>
+
+                                        <select
+                                            value={
+                                                category
+                                            }
+                                            onChange={(
+                                                e
                                             ) =>
-                                                c._id ===
-                                                classroomId
-                                        )
-                                            ?.name ||
-                                            "-"}
-                                    </span>
+                                                setCategory(
+                                                    e
+                                                        .target
+                                                        .value
+                                                )
+                                            }
+                                            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                                        >
+                                            <option value="">
+                                                Select
+                                                Category
+                                            </option>
+
+                                            <option value="reading">
+                                                Reading
+                                            </option>
+
+                                            <option value="writing">
+                                                Writing
+                                            </option>
+
+                                            <option value="numeracy">
+                                                Numeracy
+                                            </option>
+
+                                            <option value="communication">
+                                                Communication
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    {/* TYPE */}
+
+                                    <div>
+                                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                            Question
+                                            Type
+                                        </label>
+
+                                        <select
+                                            value={
+                                                type
+                                            }
+                                            onChange={(
+                                                e
+                                            ) =>
+                                                setType(
+                                                    e
+                                                        .target
+                                                        .value
+                                                )
+                                            }
+                                            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                                        >
+                                            <option value="">
+                                                All
+                                                Types
+                                            </option>
+
+                                            <option value="mcq_3">
+                                                3
+                                                Option
+                                                MCQ
+                                            </option>
+
+                                            <option value="yes_no">
+                                                Yes /
+                                                No
+                                            </option>
+
+                                            <option value="match">
+                                                Match
+                                            </option>
+
+                                            <option value="text_reading">
+                                                Text
+                                                Reading
+                                            </option>
+
+                                            <option value="calculation">
+                                                Calculations
+                                            </option>
+
+                                            <option value="comprehension">
+                                                Comprehension
+                                            </option>
+
+                                            <option value="recognition">
+                                                Recognition
+                                            </option>
+
+                                            <option value="blending">
+                                                Blending
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* SUMMARY */}
+
+                            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                                <div className="mb-6 flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+                                        <ListChecks size={20} />
+                                    </div>
+
+                                    <h2 className="text-2xl font-bold text-slate-900">
+                                        Summary
+                                    </h2>
                                 </div>
 
-                                <div className="flex justify-between items-center">
-                                    <span className="text-slate-600">
-                                        Category
-                                    </span>
+                                <div className="space-y-5">
 
-                                    <span className="font-bold text-slate-900 capitalize">
-                                        {category ||
-                                            "-"}
-                                    </span>
-                                </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-600">
+                                            Questions
+                                        </span>
 
-                                <div className="pt-4 border-t border-slate-200">
-                                    <button
-                                        onClick={
-                                            handleSubmit
-                                        }
-                                        disabled={
-                                            loading
-                                        }
-                                        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-4 rounded-2xl font-bold text-lg transition"
-                                    >
-                                        {loading
-                                            ? "Creating..."
-                                            : "Create Assignment"}
-                                    </button>
+                                        <span className="font-bold text-slate-900">
+                                            {
+                                                questions.length
+                                            }
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-600">
+                                            Selected
+                                            Subs
+                                        </span>
+
+                                        <span className="font-bold text-slate-900">
+                                            {
+                                                totalSelectedSubQuestions
+                                            }
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-600">
+                                            Classroom
+                                        </span>
+
+                                        <span className="text-right font-bold text-slate-900">
+                                            {classrooms.find(
+                                                (
+                                                    c
+                                                ) =>
+                                                    c._id ===
+                                                    classroomId
+                                            )
+                                                ?.name ||
+                                                "-"}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-600">
+                                            Category
+                                        </span>
+
+                                        <span className="capitalize font-bold text-slate-900">
+                                            {category ||
+                                                "-"}
+                                        </span>
+                                    </div>
+
+                                    <div className="border-t border-slate-200 pt-4">
+                                        <button
+                                            onClick={
+                                                handleSubmit
+                                            }
+                                            disabled={
+                                                loading
+                                            }
+                                            className="w-full rounded-2xl bg-indigo-600 py-4 text-lg font-bold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                                        >
+                                            {loading
+                                                ? "Creating..."
+                                                : "Create Assignment"}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
