@@ -892,19 +892,15 @@ const CreateAssignment = () => {
                                             className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100"
                                         >
                                             <option value="">
-                                                All
-                                                Types
+                                                All Types
                                             </option>
 
                                             <option value="mcq_3">
-                                                3
-                                                Option
-                                                MCQ
+                                                3 Option MCQ
                                             </option>
 
                                             <option value="yes_no">
-                                                Yes /
-                                                No
+                                                Yes / No
                                             </option>
 
                                             <option value="match">
@@ -912,8 +908,7 @@ const CreateAssignment = () => {
                                             </option>
 
                                             <option value="text_reading">
-                                                Text
-                                                Reading
+                                                Text Reading
                                             </option>
 
                                             <option value="calculation">
@@ -931,6 +926,23 @@ const CreateAssignment = () => {
                                             <option value="blending">
                                                 Blending
                                             </option>
+
+                                            <option value="camera">
+                                                Camera
+                                            </option>
+
+                                            <option value="picture">
+                                                Picture
+                                            </option>
+
+                                            <option value="qnahandwriting">
+                                                Handwriting
+                                            </option>
+
+                                            <option value="qnaspeech">
+                                                Speech
+                                            </option>
+
                                         </select>
                                     </div>
                                 </div>
