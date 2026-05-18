@@ -1,4 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import {
+    Mic,
+    Square,
+    RotateCcw,
+    Loader2,
+    Play,
+} from "lucide-react";
+
 import { uploadMedia } from "../../api/media";
 
 const TextReading = ({
@@ -11,24 +19,22 @@ const TextReading = ({
     // STATES
     // ---------------------------------------------------
 
-    const [started, setStarted] = useState(false);
+    const [recording, setRecording] =
+        useState(false);
 
-    const [listening, setListening] = useState(false);
+    const [audioURL, setAudioURL] =
+        useState(null);
 
-    const [transcript, setTranscript] = useState("");
+    const [uploading, setUploading] =
+        useState(false);
 
-    const [highlightIndex, setHighlightIndex] =
-        useState(-1);
-
-    const [audioURL, setAudioURL] = useState(null);
-
-    const [uploading, setUploading] = useState(false);
-
-    const [accuracy, setAccuracy] = useState(0);
-
-    const recognitionRef = useRef(null);
+    // ---------------------------------------------------
+    // REFS
+    // ---------------------------------------------------
 
     const mediaRecorderRef = useRef(null);
+
+    const streamRef = useRef(null);
 
     const chunksRef = useRef([]);
 
@@ -36,107 +42,78 @@ const TextReading = ({
     // CONTENT
     // ---------------------------------------------------
 
-    const fullText = subQuestion.content
-        .map((c) => c.value)
+    const fullText = subQuestion?.content
+        ?.map((c) => c.value)
         .join(" ");
-
-    const words = fullText.split(" ");
 
     // ---------------------------------------------------
     // LOAD SAVED RESPONSE
     // ---------------------------------------------------
 
     useEffect(() => {
-        if (response?.transcript) {
-            setTranscript(response.transcript);
-        }
-
         if (response?.audio_url) {
             setAudioURL(response.audio_url);
-        }
-
-        if (response?.accuracy) {
-            setAccuracy(response.accuracy);
         }
     }, [response]);
 
     // ---------------------------------------------------
-    // CALCULATE ACCURACY
+    // CLEANUP
     // ---------------------------------------------------
 
-    const calculateAccuracy = (spokenText) => {
-        const spokenWords = spokenText
-            .toLowerCase()
-            .trim()
-            .split(/\s+/);
+    useEffect(() => {
+        return () => {
+            stopTracks();
+        };
+    }, []);
 
-        let correct = 0;
+    const stopTracks = () => {
+        if (streamRef.current) {
+            streamRef.current
+                .getTracks()
+                .forEach((track) =>
+                    track.stop()
+                );
 
-        words.forEach((word, index) => {
-            if (
-                spokenWords[index] ===
-                word.toLowerCase()
-            ) {
-                correct++;
-            }
-        });
-
-        return Math.round(
-            (correct / words.length) * 100
-        );
+            streamRef.current = null;
+        }
     };
 
     // ---------------------------------------------------
-    // START READING
+    // START RECORDING
     // ---------------------------------------------------
 
-    const startReading = async () => {
-        if (isLocked) return;
+    const startRecording = async () => {
+        if (isLocked || uploading) return;
 
         try {
-            setStarted(true);
-
-            setTranscript("");
-
-            setHighlightIndex(-1);
+            // reset old preview
+            setAudioURL(null);
 
             // -----------------------------------------
-            // SPEECH RECOGNITION
-            // -----------------------------------------
-
-            const SpeechRecognition =
-                window.SpeechRecognition ||
-                window.webkitSpeechRecognition;
-
-            if (!SpeechRecognition) {
-                alert(
-                    "Speech Recognition not supported"
-                );
-                return;
-            }
-
-            const recognition =
-                new SpeechRecognition();
-
-            recognition.continuous = true;
-
-            recognition.interimResults = true;
-
-            recognition.lang = "en-US";
-
-            // -----------------------------------------
-            // AUDIO RECORDING
+            // GET MIC
             // -----------------------------------------
 
             const stream =
                 await navigator.mediaDevices.getUserMedia(
                     {
-                        audio: true,
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                        },
                     }
                 );
 
+            streamRef.current = stream;
+
+            // -----------------------------------------
+            // RECORDER
+            // -----------------------------------------
+
             const mediaRecorder =
-                new MediaRecorder(stream);
+                new MediaRecorder(stream, {
+                    mimeType: "audio/webm",
+                });
 
             mediaRecorderRef.current =
                 mediaRecorder;
@@ -144,13 +121,21 @@ const TextReading = ({
             chunksRef.current = [];
 
             mediaRecorder.ondataavailable = (
-                e
+                event
             ) => {
-                chunksRef.current.push(e.data);
+                if (event.data.size > 0) {
+                    chunksRef.current.push(
+                        event.data
+                    );
+                }
             };
 
             mediaRecorder.onstop = async () => {
                 try {
+                    // ---------------------------------
+                    // BLOB
+                    // ---------------------------------
+
                     const blob = new Blob(
                         chunksRef.current,
                         {
@@ -159,23 +144,24 @@ const TextReading = ({
                     );
 
                     // ---------------------------------
-                    // LOCAL PREVIEW
+                    // INSTANT LOCAL PREVIEW
+                    // FAST UI FEEDBACK
                     // ---------------------------------
 
-                    const localUrl =
+                    const localURL =
                         URL.createObjectURL(blob);
 
-                    setAudioURL(localUrl);
+                    setAudioURL(localURL);
+
+                    // ---------------------------------
+                    // UPLOAD
+                    // ---------------------------------
 
                     setUploading(true);
 
-                    // ---------------------------------
-                    // CLOUDINARY UPLOAD
-                    // ---------------------------------
-
                     const file = new File(
                         [blob],
-                        `text-reading-${subQuestion.id}.webm`,
+                        `text-reading-${subQuestion.id}-${Date.now()}.webm`,
                         {
                             type: "audio/webm",
                         }
@@ -187,166 +173,90 @@ const TextReading = ({
                             "assignment-reading"
                         );
 
-                    const cloudUrl =
+                    const cloudURL =
                         uploadRes?.data?.url;
 
-                    // ---------------------------------
-                    // FINAL SAVE
-                    // ---------------------------------
-
-                    setAudioURL(cloudUrl);
-
-                    const finalAccuracy =
-                        calculateAccuracy(
-                            transcript
+                    if (!cloudURL) {
+                        throw new Error(
+                            "Upload failed"
                         );
+                    }
 
-                    setAccuracy(finalAccuracy);
+                    // ---------------------------------
+                    // SAVE FINAL CLOUD URL
+                    // ---------------------------------
+
+                    setAudioURL(cloudURL);
 
                     await onAnswer({
-                        transcript,
-                        audio_url: cloudUrl,
-                        accuracy: finalAccuracy,
+                        audio_url: cloudURL,
                     });
 
                 } catch (err) {
                     console.error(err);
-                    alert("Upload failed");
+
+                    alert(
+                        "Failed to upload recording"
+                    );
                 } finally {
                     setUploading(false);
 
-                    stream
-                        .getTracks()
-                        .forEach((t) =>
-                            t.stop()
-                        );
+                    stopTracks();
                 }
             };
 
             // -----------------------------------------
-            // RECOGNITION EVENTS
+            // START
             // -----------------------------------------
 
-            recognition.onstart = () => {
-                setListening(true);
-            };
+            mediaRecorder.start(250);
 
-            recognition.onresult = (event) => {
-                let text = "";
-
-                for (
-                    let i = event.resultIndex;
-                    i < event.results.length;
-                    i++
-                ) {
-                    text +=
-                        event.results[i][0]
-                            .transcript + " ";
-                }
-
-                text = text.trim();
-
-                setTranscript(text);
-
-                const spokenWords = text
-                    .toLowerCase()
-                    .split(/\s+/);
-
-                let matchIndex = -1;
-
-                for (
-                    let i = 0;
-                    i < words.length;
-                    i++
-                ) {
-                    if (
-                        spokenWords[i] ===
-                        words[i]?.toLowerCase()
-                    ) {
-                        matchIndex = i;
-                    }
-                }
-
-                setHighlightIndex(matchIndex);
-            };
-
-            recognition.onend = () => {
-                setListening(false);
-
-                mediaRecorder.stop();
-            };
-
-            // -----------------------------------------
-            // START BOTH
-            // -----------------------------------------
-
-            recognition.start();
-
-            mediaRecorder.start();
-
-            recognitionRef.current = recognition;
+            setRecording(true);
 
         } catch (err) {
             console.error(err);
-            alert("Microphone access denied");
+
+            alert(
+                "Microphone permission denied"
+            );
         }
     };
 
     // ---------------------------------------------------
-    // STOP
+    // STOP RECORDING
     // ---------------------------------------------------
 
-    const stopReading = () => {
-        recognitionRef.current?.stop();
+    const stopRecording = () => {
+        try {
+            if (
+                mediaRecorderRef.current &&
+                mediaRecorderRef.current.state !==
+                    "inactive"
+            ) {
+                mediaRecorderRef.current.stop();
+            }
+
+            setRecording(false);
+
+        } catch (err) {
+            console.error(err);
+
+            setRecording(false);
+
+            stopTracks();
+        }
     };
 
     // ---------------------------------------------------
     // RETRY
     // ---------------------------------------------------
 
-    const retryReading = () => {
-        if (isLocked) return;
-
-        setStarted(false);
-
-        setListening(false);
-
-        setTranscript("");
-
-        setHighlightIndex(-1);
+    const retryRecording = () => {
+        if (isLocked || uploading) return;
 
         setAudioURL(null);
 
-        setAccuracy(0);
-    };
-
-    // ---------------------------------------------------
-    // RENDER CONTENT
-    // ---------------------------------------------------
-
-    const renderContent = () => {
-        return words.map((word, i) => {
-            const isHighlighted =
-                started &&
-                i <= highlightIndex;
-
-            return (
-                <span
-                    key={i}
-                    className={`
-                        mr-2 inline-block rounded-lg
-                        px-2 py-1 transition-all duration-200
-                        ${
-                            isHighlighted
-                                ? "bg-green-200 text-green-900"
-                                : "bg-transparent text-zinc-800"
-                        }
-                    `}
-                >
-                    {word}
-                </span>
-            );
-        });
+        startRecording();
     };
 
     // ---------------------------------------------------
@@ -355,137 +265,131 @@ const TextReading = ({
 
     return (
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            {/* ------------------------------------------------ */}
+            {/* ========================================== */}
             {/* TEXT */}
-            {/* ------------------------------------------------ */}
+            {/* ========================================== */}
 
             <div
                 className="
-                    mb-8 text-center text-3xl
-                    font-medium leading-[70px]
+                    mb-10 text-center text-3xl
+                    font-semibold leading-17.5
                     text-zinc-800
                 "
             >
-                {renderContent()}
+                {fullText}
             </div>
 
-            {/* ------------------------------------------------ */}
-            {/* BUTTONS */}
-            {/* ------------------------------------------------ */}
+            {/* ========================================== */}
+            {/* CONTROLS */}
+            {/* ========================================== */}
 
             <div className="flex flex-wrap items-center justify-center gap-4">
-                {!started ? (
-                    <button
-                        onClick={startReading}
-                        disabled={isLocked}
-                        className="
-                            rounded-2xl bg-indigo-600
-                            px-6 py-4 text-lg font-semibold
-                            text-white transition
-                            hover:bg-indigo-700
-                            disabled:cursor-not-allowed
-                            disabled:opacity-50
-                        "
-                    >
-                        🎤 Start Reading
-                    </button>
-                ) : listening ? (
-                    <button
-                        onClick={stopReading}
-                        className="
-                            rounded-2xl bg-red-600
-                            px-6 py-4 text-lg font-semibold
-                            text-white transition
-                            hover:bg-red-700
-                        "
-                    >
-                        ⏹ Stop Reading
-                    </button>
-                ) : (
-                    <>
+                {!recording ? (
+                    audioURL ? (
                         <button
-                            onClick={startReading}
-                            disabled={isLocked}
+                            onClick={
+                                retryRecording
+                            }
+                            disabled={
+                                isLocked ||
+                                uploading
+                            }
                             className="
-                                rounded-2xl bg-indigo-600
-                                px-6 py-4 text-lg font-semibold
-                                text-white transition
-                                hover:bg-indigo-700
-                                disabled:cursor-not-allowed
-                                disabled:opacity-50
-                            "
-                        >
-                            🔁 Read Again
-                        </button>
-
-                        <button
-                            onClick={retryReading}
-                            disabled={isLocked}
-                            className="
+                                flex items-center gap-3
                                 rounded-2xl bg-orange-500
-                                px-6 py-4 text-lg font-semibold
-                                text-white transition
-                                hover:bg-orange-600
+                                px-6 py-4 text-lg
+                                font-semibold text-white
+                                transition hover:bg-orange-600
                                 disabled:cursor-not-allowed
                                 disabled:opacity-50
                             "
                         >
-                            ♻ Retry
+                            <RotateCcw
+                                size={22}
+                            />
+
+                            Record Again
                         </button>
-                    </>
+                    ) : (
+                        <button
+                            onClick={
+                                startRecording
+                            }
+                            disabled={
+                                isLocked ||
+                                uploading
+                            }
+                            className="
+                                flex items-center gap-3
+                                rounded-2xl bg-indigo-600
+                                px-6 py-4 text-lg
+                                font-semibold text-white
+                                transition hover:bg-indigo-700
+                                disabled:cursor-not-allowed
+                                disabled:opacity-50
+                            "
+                        >
+                            <Mic size={22} />
+
+                            Start Reading
+                        </button>
+                    )
+                ) : (
+                    <button
+                        onClick={stopRecording}
+                        className="
+                            flex items-center gap-3
+                            rounded-2xl bg-red-600
+                            px-6 py-4 text-lg
+                            font-semibold text-white
+                            transition hover:bg-red-700
+                        "
+                    >
+                        <Square size={20} />
+
+                        Stop Recording
+                    </button>
                 )}
 
                 {uploading && (
-                    <div className="text-sm font-medium text-zinc-500">
-                        Uploading audio...
+                    <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+                        <Loader2
+                            size={18}
+                            className="animate-spin"
+                        />
+
+                        Uploading recording...
                     </div>
                 )}
             </div>
 
-            {/* ------------------------------------------------ */}
-            {/* RESULT */}
-            {/* ------------------------------------------------ */}
+            {/* ========================================== */}
+            {/* AUDIO PREVIEW */}
+            {/* ========================================== */}
 
-            {transcript && (
+            {audioURL && (
                 <div
                     className="
                         mt-8 rounded-2xl border
                         border-zinc-200 bg-zinc-50 p-5
                     "
                 >
-                    <div className="mb-4">
-                        <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                            Transcript
-                        </p>
+                    <div className="mb-4 flex items-center gap-2">
+                        <Play
+                            size={18}
+                            className="text-indigo-600"
+                        />
 
-                        <p className="text-lg text-zinc-800">
-                            {transcript}
-                        </p>
-                    </div>
-
-                    <div className="mb-4">
                         <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                            Accuracy
-                        </p>
-
-                        <p className="text-2xl font-bold text-green-600">
-                            {accuracy}%
+                            Audio Preview
                         </p>
                     </div>
 
-                    {audioURL && (
-                        <div>
-                            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                                Audio Preview
-                            </p>
-
-                            <audio
-                                controls
-                                src={audioURL}
-                                className="w-full"
-                            />
-                        </div>
-                    )}
+                    <audio
+                        controls
+                        src={audioURL}
+                        className="w-full"
+                    />
                 </div>
             )}
         </div>
