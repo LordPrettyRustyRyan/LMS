@@ -230,9 +230,9 @@ const AssignmentPlayer = () => {
     const progressPercent =
         attempt?.progress?.total_questions > 0
             ? (
-                  attempt.progress.answered_count /
-                  attempt.progress.total_questions
-              ) * 100
+                attempt.progress.answered_count /
+                attempt.progress.total_questions
+            ) * 100
             : 0;
 
     // ---------------- UI ----------------
@@ -241,52 +241,50 @@ const AssignmentPlayer = () => {
         <div className="min-h-screen bg-slate-50">
             {/* HEADER */}
             <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-                <div className="mx-auto max-w-5xl px-6 py-5">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-900">
-                                {assignment.title}
-                            </h1>
+                <div className="mx-auto max-w-5xl px-6 py-4">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-                            <p className="mt-1 text-sm text-slate-500">
-                                Complete all questions carefully
-                            </p>
-                        </div>
+                        {/* LEFT SIDE */}
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <h1 className="truncate text-2xl font-bold text-slate-900">
+                                    {assignment.title}
+                                </h1>
 
-                        {isLocked && (
-                            <div className="rounded-full bg-green-100 px-4 py-2 text-sm font-medium text-green-700">
-                                Assignment Submitted
+                                <p className="mt-1 text-sm text-slate-500">
+                                    Complete all questions carefully
+                                </p>
+
+                                {isLocked && (
+                                    <div className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                        Submitted
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
 
-                    {/* PROGRESS */}
-                    <div className="mt-5">
-                        <div className="mb-2 flex items-center justify-between text-sm">
-                            <span className="font-medium text-slate-700">
-                                Progress
-                            </span>
-
-                            <span className="text-slate-500">
-                                {
-                                    attempt?.progress
-                                        ?.answered_count
-                                }
-                                /
-                                {
-                                    attempt?.progress
-                                        ?.total_questions
-                                }
-                            </span>
                         </div>
 
-                        <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-                            <div
-                                className="h-full rounded-full bg-indigo-600 transition-all duration-300"
-                                style={{
-                                    width: `${progressPercent}%`,
-                                }}
-                            />
+                        {/* RIGHT SIDE */}
+                        <div className="w-full lg:w-180">
+                            <div className="mb-2 flex items-center justify-between text-sm">
+                                <span className="font-medium text-slate-700">
+                                    Progress
+                                </span>
+
+                                <span className="text-slate-500">
+                                    {attempt?.progress?.answered_count}/
+                                    {attempt?.progress?.total_questions}
+                                </span>
+                            </div>
+
+                            <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                                <div
+                                    className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+                                    style={{
+                                        width: `${progressPercent}%`,
+                                    }}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -338,9 +336,9 @@ const AssignmentPlayer = () => {
                                     {/* LIGHT DIVIDER AFTER EVERY SUB QUESTION */}
                                     {sqIndex !==
                                         q.sub_questions.length -
-                                            1 && (
-                                        <div className="my-8 border-t border-slate-200" />
-                                    )}
+                                        1 && (
+                                            <div className="my-8 border-t border-slate-200" />
+                                        )}
                                 </div>
                             ))}
                         </div>
@@ -348,22 +346,21 @@ const AssignmentPlayer = () => {
                         {/* DARK DIVIDER AFTER EVERY QUESTION */}
                         {qIndex !==
                             assignment.questions.length -
-                                1 && (
-                            <div className="mt-10 border-t-4 border-slate-300" />
-                        )}
+                            1 && (
+                                <div className="mt-10 border-t-4 border-slate-300" />
+                            )}
                     </div>
                 ))}
 
                 {/* SUBMIT BUTTON */}
-                <div className="sticky bottom-6 mt-10 flex justify-end">
+                <div className="mt-10 flex justify-end">
                     <button
                         disabled={isLocked}
                         onClick={handleSubmit}
-                        className={`rounded-2xl px-8 py-4 text-lg font-semibold shadow-lg transition-all duration-200 ${
-                            isLocked
-                                ? "cursor-not-allowed bg-slate-300 text-slate-500"
-                                : "bg-indigo-600 text-white hover:-translate-y-0.5 hover:bg-indigo-700"
-                        }`}
+                        className={`rounded-2xl px-8 py-4 text-lg font-semibold shadow-lg transition-all duration-200 ${isLocked
+                            ? "cursor-not-allowed bg-slate-300 text-slate-500"
+                            : "bg-indigo-600 text-white hover:-translate-y-0.5 hover:bg-indigo-700"
+                            }`}
                     >
                         {isLocked
                             ? "Assignment Submitted"
