@@ -858,10 +858,6 @@ const CreateAssignment = () => {
                                                 Reading
                                             </option>
 
-                                            <option value="writing">
-                                                Writing
-                                            </option>
-
                                             <option value="numeracy">
                                                 Numeracy
                                             </option>
