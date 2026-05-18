@@ -251,7 +251,7 @@ const AssignmentPlayer = () => {
                                     {assignment.title}
                                 </h1>
 
-                                <p className="mt-1 text-sm text-slate-500">
+                                <p className="text-sm text-slate-500">
                                     Complete all questions carefully
                                 </p>
 
