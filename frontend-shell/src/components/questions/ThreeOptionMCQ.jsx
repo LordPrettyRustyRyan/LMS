@@ -90,7 +90,7 @@ const ThreeOptionMCQ = ({
                 {/* TEXT OPTION */}
 
                 {opt.type === "text" && (
-                    <div className="text-center text-3xl font-bold text-slate-800">
+                    <div className="text-center text-7xl font-bold text-slate-800">
                         {opt.value}
                     </div>
                 )}
