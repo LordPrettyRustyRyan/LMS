@@ -21,7 +21,7 @@ const Navbar = ({ role }) => {
             }
             className="mr-4 cursor-pointer text-2xl font-black tracking-tight text-indigo-600"
           >
-            Nitin and Sidharth's Learning App
+            LMS
           </div>
 
           {/* NAV BUTTONS */}
